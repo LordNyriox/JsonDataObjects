@@ -480,6 +480,8 @@ type
     end;
   end;
 
+  TJsonIterator = reference to procedure(aContainer: TJsonBaseObject);
+
   // TJsonBaseObject is the base class for TJsonArray and TJsonObject
   TJsonBaseObject = class abstract(TObject)
   private type
@@ -553,6 +555,8 @@ type
     function ToString: string; override;
 
     function Clone: TJsonBaseObject;
+
+    procedure Iterate(const aIterator: TJsonIterator); virtual;
 
     class function JSONToDateTime(const Value: string; ConvertToLocalTime: Boolean = True): TDateTime; static;
     class function DateTimeToJSON(const Value: TDateTime; UseUtcTime: Boolean): string; static;
@@ -684,6 +688,8 @@ type
     property O[Index: Integer]: TJsonObject read {$IFDEF BCB}GetObj{$ELSE}GetObject{$ENDIF} write SetObject;
     property V[Index: Integer]: Variant read GetVariant write SetVariant;
 
+    procedure Iterate(const aIterator: TJsonIterator); override;
+
     property Items[Index: Integer]: PJsonDataValue read GetItem;
     property Count: Integer read FCount write SetCount;
     property Capacity: Integer read FCapacity write SetCapacity;
@@ -805,6 +811,8 @@ type
     function Extract(const Name: string): TJsonBaseObject;
     function ExtractArray(const Name: string): TJsonArray;
     function ExtractObject(const Name: string): TJsonObject;
+
+    procedure Iterate(const aIterator: TJsonIterator); override;
 
     function GetEnumerator: TJsonObjectEnumerator;
     function IsNull(const Name: string): Boolean;
@@ -3643,6 +3651,11 @@ begin
   end;
 end;
 
+procedure TJsonBaseObject.Iterate(const aIterator: TJsonIterator);
+begin
+  aIterator(Self);
+end;
+
 procedure TJsonDataValue.TypeCastError(ExpectedType: TJsonDataType);
 begin
   raise EJsonCastException.CreateResFmt(@RsTypeCastError,
@@ -4165,6 +4178,15 @@ begin
   Result := FItems[Index].IsNull
 end;
 
+procedure TJsonArray.Iterate(const aIterator: TJsonIterator);
+begin
+  inherited;
+  for var lIdx := 0 to Pred(FCount) do
+    with FItems[lIdx] do
+      if FTyp in [jdtArray, jdtObject] then
+        TJsonBaseObject(FValue.O).Iterate(aIterator);
+end;
+
 procedure TJsonArray.SetString(Index: Integer; const Value: string);
 begin
   {$IFDEF CHECK_ARRAY_INDEX}
@@ -4524,6 +4546,15 @@ begin
     Result := Item.IsNull
   else
     Result := True;
+end;
+
+procedure TJsonObject.Iterate(const aIterator: TJsonIterator);
+begin
+  inherited;
+  for var lIdx := 0 to Pred(FCount) do
+    with FItems[lIdx] do
+      if FTyp in [jdtArray, jdtObject] then
+        TJsonBaseObject(FValue.O).Iterate(aIterator);
 end;
 
 function TJsonObject.AddItem(const Name: string): PJsonDataValue;
