@@ -1652,7 +1652,7 @@ var
 begin
   if S <> '' then
     S := '';
-  if (P = nil) or (Len = 0) then
+  if (P = nil) or (Len < 1) then
     Exit;
   SetLength(S, Len);
 
